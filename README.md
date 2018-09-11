@@ -1,5 +1,7 @@
 ## Welcome to GitHub Pages, 你是枝枝女王吗？嘿嘿
 
+宝宝，这个域名咱们可以随便改，嘿嘿，只要你喜欢，嘿嘿，宝宝么么哒~~~~
+
 You can use the [editor on GitHub](https://github.com/vvizz19/vvizz19.github.io/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
 Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
