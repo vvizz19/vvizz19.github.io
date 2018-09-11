@@ -1,210 +1,397 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <title>为了美好的未来</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-        <style>
-            body {
-                font-family: Monospace;
-                background-color: #f0f0f0;
-                margin: 0px;
-                overflow: hidden;
-            }
-        </style>
-    </head>
-    <body>
-        <script src="js/nb.js"></script>
-        <script src="js/Projector.js"></script>
-        <script src="js/CanvasRenderer.js"></script>
-        <script src="js/tween.min.js"></script>
-        <script src="js/Sparks.js"></script>
-        <!-- load the font file from canvas-text -->
-        <script src="js/helvetiker_regular.typeface.js"></script>
-        <script>
-            var container;
-            var camera, scene, renderer;
-            var group, text, plane;
-            var targetRotation = 0;
-            var targetRotationOnMouseDown = 0;
-            var mouseX = 0;
-            var mouseXOnMouseDown = 0;
-            var windowHalfX = window.innerWidth / 2;
-            var windowHalfY = window.innerHeight / 2;
-            var heartShape, particleCloud, sparksEmitter, emitterPos;
-            var _rotation = 0;
-            var timeOnShapePath = 0;
-            init();
-            animate();
-            function init() {
-                container = document.createElement('div');
-                document.body.appendChild(container);
-                //相机
-                camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
-                camera.position.set(0, 150, 800);
-                //场景
-                scene = new THREE.Scene();
-                group = new THREE.Group();
-                scene.add(group);
-                // Get text from hash
-                var string = "宝宝";
-                var hash = document.location.hash.substr(1);
-                if (hash.length !== 0) {
-                    string = hash;
-                }
-                var text3d = new THREE.TextGeometry(string, {
-                    size: 80,
-                    height: 20,
-                    curveSegments: 2,
-                    font: "helvetiker"
-                });
-                text3d.computeBoundingBox();
-                var centerOffset = -0.5 * (text3d.boundingBox.max.x - text3d.boundingBox.min.x);
-                var textMaterial = new THREE.MeshBasicMaterial({color: Math.random() * 0xffffff, overdraw: 0.5});
-                text = new THREE.Mesh(text3d, textMaterial);
-                // Potentially, we can extract the vertices or faces of the text to generate particles too.
-                // Geo > Vertices > Position
-                text.position.x = centerOffset;
-                text.position.y = 100;
-                text.position.z = 0;
-                text.rotation.x = 0;
-                text.rotation.y = Math.PI * 2;
-                group.add(text);
-                particleCloud = new THREE.Object3D(); // Just a group
-                particleCloud.y = 800;
-                group.add(particleCloud);
-                // Create Particle Systems
-                // Heart
-                var x = 0, y = 0;
-                heartShape = new THREE.Shape();
-                heartShape.moveTo(x + 25, y + 25);
-                heartShape.bezierCurveTo(x + 25, y + 25, x + 20, y, x, y);
-                heartShape.bezierCurveTo(x - 30, y, x - 30, y + 35, x - 30, y + 35);
-                heartShape.bezierCurveTo(x - 30, y + 55, x - 10, y + 77, x + 25, y + 95);
-                heartShape.bezierCurveTo(x + 60, y + 77, x + 80, y + 55, x + 80, y + 35);
-                heartShape.bezierCurveTo(x + 80, y + 35, x + 80, y, x + 50, y);
-                heartShape.bezierCurveTo(x + 35, y, x + 25, y + 25, x + 25, y + 25);
-                var hue = 0;
-                var hearts = function(context) {
-                    context.globalAlpha = 0.5;
-                    var x = 0, y = 0;
-                    context.scale(0.05, -0.05); // Scale so canvas render can redraw within bounds
-                    context.beginPath();
-                    // From http://blog.burlock.org/html5/130-paths
-                    context.bezierCurveTo(x + 2.5, y + 2.5, x + 2.0, y, x, y);
-                    context.bezierCurveTo(x - 3.0, y, x - 3.0, y + 3.5, x - 3.0, y + 3.5);
-                    context.bezierCurveTo(x - 3.0, y + 5.5, x - 1.0, y + 7.7, x + 2.5, y + 9.5);
-                    context.bezierCurveTo(x + 6.0, y + 7.7, x + 8.0, y + 5.5, x + 8.0, y + 3.5);
-                    context.bezierCurveTo(x + 8.0, y + 3.5, x + 8.0, y, x + 5.0, y);
-                    context.bezierCurveTo(x + 3.5, y, x + 2.5, y + 2.5, x + 2.5, y + 2.5);
-                    context.fill();
-                    context.lineWidth = 0.5; //0.05
-                    context.stroke();
-                }
-                var setTargetParticle = function() {
-                    var material = new THREE.SpriteCanvasMaterial({
-                        program: hearts
-                    });
-                    material.color.setHSL(hue, 1, 0.75);
-                    hue += 0.001;
-                    if (hue > 1)
-                        hue -= 1;
-                    particle = new THREE.Sprite(material);
-                    particle.scale.x = particle.scale.y = Math.random() * 40 + 40;
-                    particleCloud.add(particle);
-                    return particle;
-                };
-                var onParticleCreated = function(p) {
-                    p.target.position.copy(p.position);
-                };
-                var onParticleDead = function(particle) {
-                    particle.target.visible = false;
-                    particleCloud.remove(particle.target);
-                };
-                sparksEmitter = new SPARKS.Emitter(new SPARKS.SteadyCounter(160));
-                emitterpos = new THREE.Vector3();
-                sparksEmitter.addInitializer(new SPARKS.Position(new SPARKS.PointZone(emitterpos)));
-                sparksEmitter.addInitializer(new SPARKS.Lifetime(0, 2));
-                sparksEmitter.addInitializer(new SPARKS.Target(null, setTargetParticle));
-                sparksEmitter.addInitializer(new SPARKS.Velocity(new SPARKS.PointZone(new THREE.Vector3(0, -50, 10))));
-                // TOTRY Set velocity to move away from centroid
-                sparksEmitter.addAction(new SPARKS.Age());
-                //sparksEmitter.addAction(new SPARKS.Accelerate(0.2));
-                sparksEmitter.addAction(new SPARKS.Move());
-                sparksEmitter.addAction(new SPARKS.RandomDrift(50, 50, 2000));
-                sparksEmitter.addCallback("created", onParticleCreated);
-                sparksEmitter.addCallback("dead", onParticleDead);
-                sparksEmitter.addCallback("updated", function(particle) {
-                    particle.target.position.copy(particle.position);
-                });
-                sparksEmitter.start();
-                // End Particles
-                renderer = new THREE.CanvasRenderer();
-                renderer.setClearColor(0xf0f0f0);
-                renderer.setPixelRatio(window.devicePixelRatio);
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                container.appendChild(renderer.domElement);
-                document.addEventListener('mousedown', onDocumentMouseDown, false);
-                document.addEventListener('touchstart', onDocumentTouchStart, false);
-                document.addEventListener('touchmove', onDocumentTouchMove, false);
-                //
-                window.addEventListener('resize', onWindowResize, false);
-            }
-            function onWindowResize() {
-                windowHalfX = window.innerWidth / 2;
-                windowHalfY = window.innerHeight / 2;
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-            //
-            document.addEventListener('mousemove', onDocumentMouseMove, false);
-            function onDocumentMouseDown(event) {
-                event.preventDefault();
-                mouseXOnMouseDown = event.clientX - windowHalfX;
-                targetRotationOnMouseDown = targetRotation;
-                if (sparksEmitter.isRunning()) {
-                    sparksEmitter.stop();
-                } else {
-                    sparksEmitter.start();
-                }
-            }
-            function onDocumentMouseMove(event) {
-                mouseX = event.clientX - windowHalfX;
-                targetRotation = targetRotationOnMouseDown + (mouseX - mouseXOnMouseDown) * 0.02;
-            }
-            function onDocumentTouchStart(event) {
-                if (event.touches.length == 1) {
-                    event.preventDefault();
-                    mouseXOnMouseDown = event.touches[ 0 ].pageX - windowHalfX;
-                    targetRotationOnMouseDown = targetRotation;
-                }
-            }
-            function onDocumentTouchMove(event) {
-                if (event.touches.length == 1) {
-                    event.preventDefault();
-                    mouseX = event.touches[ 0 ].pageX - windowHalfX;
-                    targetRotation = targetRotationOnMouseDown + (mouseX - mouseXOnMouseDown) * 0.05;
-                }
-            }
-            //
-            function animate() {//更新场景
-                requestAnimationFrame(animate);
-                render();
-            }
-            function render() {
-                timeOnShapePath += 0.0337;
-                if (timeOnShapePath > 1)
-                    timeOnShapePath -= 1;
-                // TODO Create a PointOnShape Action/Zone in the particle engine
-                var pointOnShape = heartShape.getPointAt(timeOnShapePath);
-                emitterpos.x = pointOnShape.x * 5 - 100;
-                emitterpos.y = -pointOnShape.y * 5 + 400;
-                // Pretty cool effect if you enable this
-                // particleCloud.rotation.y += 0.05;
-                group.rotation.y += (targetRotation - group.rotation.y) * 0.05;
-                renderer.render(scene, camera);
-            }
-        </script>
-    </body>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>为了美好的未来 - vvizz</title>
+<link href="http://hovertree.com/texiao/html5/index/hovertreewelcome.css" type="text/css" rel="stylesheet" />
+</head>
+<body ondragstart="window.event.returnValue=false" oncontextmenu="window.event.returnValue=false" onselectstart="event.returnValue=false">
+
+<div id="hovertreecontainer">
+
+<div>
+<h1 id="h1">枝枝宝宝 </h1>
+<h2 id="h2"> 傻笑不是与生俱来的，而是从我爱上你的那一刻开始的，亲爱的！</h2>
+<br/>
+<h3></h3>
+<p>&nbsp;</p>
+<p><strong><a "">进入主站</a></strong></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+</div>
+
+</div>
+
+<canvas id="canvas"></canvas>
+<audio autoplay="autoplay">
+<source src="http://hovertree.com" type="audio/ogg">
+<source src="http://cms.hovertree.com/hovertreesound/hovertreexihuanni.mp3" type="audio/mpeg">
+您的浏览器不支持播放音乐。请用支持html5的浏览器打开,例如chrome或火狐或者新版IE等。
+<br />
+</audio><script type="text/javascript" src="http://hovertree.com/texiao/html5/index/hovertreewelcome.js">
+</script>
+<script type="text/javascript">
+
+; (function (window) {
+
+var ctx,
+hue,
+logo,
+form,
+buffer,
+target = {},
+tendrils = [],
+settings = {};
+
+settings.debug = true;
+settings.friction = 0.5;
+settings.trails = 20;
+settings.size = 50;
+settings.dampening = 0.25;
+settings.tension = 0.98;
+
+Math.TWO_PI = Math.PI * 2;
+
+// ========================================================================================
+// Oscillator
+// ----------------------------------------------------------------------------------------
+
+function Oscillator(options) {
+this.init(options || {});
+}
+
+Oscillator.prototype = (function () {
+
+var value = 0;
+
+return {
+
+init: function (options) {
+this.phase = options.phase || 0;
+this.offset = options.offset || 0;
+this.frequency = options.frequency || 0.001;
+this.amplitude = options.amplitude || 1;
+},
+
+update: function () {
+this.phase += this.frequency;
+value = this.offset + Math.sin(this.phase) * this.amplitude;
+return value;
+},
+
+value: function () {
+return value;
+}
+};
+
+})();
+
+// ========================================================================================
+// Tendril
+// ----------------------------------------------------------------------------------------
+
+function Tendril(options) {
+this.init(options || {});
+}
+
+Tendril.prototype = (function () {
+
+function Node() {
+this.x = 0;
+this.y = 0;
+this.vy = 0;
+this.vx = 0;
+}
+
+return {
+
+init: function (options) {
+
+this.spring = options.spring + (Math.random() * 0.1) - 0.05;
+this.friction = settings.friction + (Math.random() * 0.01) - 0.005;
+this.nodes = [];
+
+for (var i = 0, node; i < settings.size; i++) {
+
+node = new Node();
+node.x = target.x;
+node.y = target.y;
+
+this.nodes.push(node);
+}
+},
+
+update: function () {
+
+var spring = this.spring,
+node = this.nodes[0];
+
+node.vx += (target.x - node.x) * spring;
+node.vy += (target.y - node.y) * spring;
+
+for (var prev, i = 0, n = this.nodes.length; i < n; i++) {
+
+node = this.nodes[i];
+
+if (i > 0) {
+
+prev = this.nodes[i - 1];
+
+node.vx += (prev.x - node.x) * spring;
+node.vy += (prev.y - node.y) * spring;
+node.vx += prev.vx * settings.dampening;
+node.vy += prev.vy * settings.dampening;
+}
+
+node.vx *= this.friction;
+node.vy *= this.friction;
+node.x += node.vx;
+node.y += node.vy;
+
+spring *= settings.tension;
+}
+},
+
+draw: function () {
+
+var x = this.nodes[0].x,
+y = this.nodes[0].y,
+a, b;
+
+ctx.beginPath();
+ctx.moveTo(x, y);
+
+for (var i = 1, n = this.nodes.length - 2; i < n; i++) {
+
+a = this.nodes[i];
+b = this.nodes[i + 1];
+x = (a.x + b.x) * 0.5;
+y = (a.y + b.y) * 0.5;
+
+ctx.quadraticCurveTo(a.x, a.y, x, y);
+}
+
+a = this.nodes[i];
+b = this.nodes[i + 1];
+
+ctx.quadraticCurveTo(a.x, a.y, b.x, b.y);
+ctx.stroke();
+ctx.closePath();
+}
+};
+
+})();
+
+// ----------------------------------------------------------------------------------------
+
+function init(event) {
+
+document.removeEventListener('mousemove', init);
+document.removeEventListener('touchstart', init);
+
+document.addEventListener('mousemove', mousemove);
+document.addEventListener('touchmove', mousemove);
+document.addEventListener('touchstart', touchstart);
+
+mousemove(event);
+reset();
+loop();
+}
+
+function reset() {
+
+tendrils = [];
+
+for (var i = 0; i < settings.trails; i++) {
+
+tendrils.push(new Tendril({
+spring: 0.45 + 0.025 * (i / settings.trails)
+}));
+}
+}
+
+function loop() {
+
+if (!ctx.running) return;
+
+ctx.globalCompositeOperation = 'source-over';
+ctx.fillStyle = 'rgba(8,5,16,0.4)';
+ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+ctx.globalCompositeOperation = 'lighter';
+ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.25)';
+ctx.lineWidth = 1;
+
+if (ctx.frame % 60 == 0) {
+console.log(hue.update(), Math.round(hue.update()), hue.phase, hue.offset, hue.frequency, hue.amplitude);
+}
+
+for (var i = 0, tendril; i < settings.trails; i++) {
+tendril = tendrils[i];
+tendril.update();
+tendril.draw();
+}
+
+ctx.frame++;
+ctx.stats.update();
+requestAnimFrame(loop);
+}
+
+function resize() {
+ctx.canvas.width = window.innerWidth;
+ctx.canvas.height = window.innerHeight;
+}
+
+function start() {
+if (!ctx.running) {
+ctx.running = true;
+loop();
+}
+}
+
+function stop() {
+ctx.running = false;
+}
+
+function mousemove(event) {
+if (event.touches) {
+target.x = event.touches[0].pageX;
+target.y = event.touches[0].pageY;
+} else {
+target.x = event.clientX
+target.y = event.clientY;
+}
+event.preventDefault();
+}
+
+function touchstart(event) {
+if (event.touches.length == 1) {
+target.x = event.touches[0].pageX;
+target.y = event.touches[0].pageY;
+}
+}
+
+function keyup(event) {
+
+switch (event.keyCode) {
+case 32:
+save();
+break;
+default:
+// console.log(event.keyCode); hovertree.com
+}
+}
+
+function letters(id) {
+
+var el = document.getElementById(id),
+letters = el.innerHTML.replace('&amp;', '&').split(''),
+heading = '';
+
+for (var i = 0, n = letters.length, letter; i < n; i++) {
+letter = letters[i].replace('&', '&amp');
+heading += letter.trim() ? '<span class="letter-' + i + '">' + letter + '</span>' : '&nbsp;';
+}
+
+el.innerHTML = heading;
+setTimeout(function () {
+el.className = 'transition-in';
+}, (Math.random() * 500) + 500);
+}
+
+function save() {
+
+if (!buffer) {
+
+buffer = document.createElement('canvas');
+buffer.width = screen.availWidth;
+buffer.height = screen.availHeight;
+buffer.ctx = buffer.getContext('2d');
+
+form = document.createElement('form');
+form.method = 'post';
+form.input = document.createElement('input');
+form.input.type = 'hidden';
+form.input.name = 'data';
+form.appendChild(form.input);
+
+document.body.appendChild(form);
+}
+
+buffer.ctx.fillStyle = 'rgba(8,5,16)';
+buffer.ctx.fillRect(0, 0, buffer.width, buffer.height);
+
+buffer.ctx.drawImage(canvas,
+Math.round(buffer.width / 2 - canvas.width / 2),
+Math.round(buffer.height / 2 - canvas.height / 2)
+);
+
+buffer.ctx.drawImage(logo,
+Math.round(buffer.width / 2 - logo.width / 4),
+Math.round(buffer.height / 2 - logo.height / 4),
+logo.width / 2,
+logo.height / 2
+);
+
+window.open(buffer.toDataURL(), 'wallpaper', 'top=0,left=0,width=' + buffer.width + ',height=' + buffer.height);
+
+// form.input.value = buffer.toDataURL().substr(22);
+// form.submit(); hovertree.com
+}
+
+window.requestAnimFrame = (function () {
+return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function (fn) { window.setTimeout(fn, 1000 / 60) };
+})();
+
+window.onload = function () {
+
+ctx = document.getElementById('canvas').getContext('2d');
+ctx.stats = new Stats();
+ctx.running = true;
+ctx.frame = 1;
+
+logo = new Image();
+logo.src = 'ht' + 'tp://ho' + 'vertree.c' + 'om/themes/hvtimages/hvtlogo.p' + 'ng';
+
+hue = new Oscillator({
+phase: Math.random() * Math.TWO_PI,
+amplitude: 85,
+frequency: 0.0015,
+offset: 285
+});
+
+letters('h1');
+letters('h2');
+
+document.addEventListener('mousemove', init);
+document.addEventListener('touchstart', init);
+document.body.addEventListener('orientationchange', resize);
+window.addEventListener('resize', resize);
+window.addEventListener('keyup', keyup);
+window.addEventListener('focus', start);
+window.addEventListener('blur', stop);
+
+resize();
+
+if (window.DEBUG) {
+
+var gui = new dat.GUI();
+
+// gui.add(settings, 'debug');
+settings.gui.add(settings, 'trails', 1, 30).onChange(reset);
+settings.gui.add(settings, 'size', 25, 75).onFinishChange(reset);
+settings.gui.add(settings, 'friction', 0.45, 0.55).onFinishChange(reset);
+settings.gui.add(settings, 'dampening', 0.01, 0.4).onFinishChange(reset);
+settings.gui.add(settings, 'tension', 0.95, 0.999).onFinishChange(reset);
+
+document.body.appendChild(ctx.stats.domElement);
+}
+};
+
+})(window);
+
+</script>
+</body>
 </html>
