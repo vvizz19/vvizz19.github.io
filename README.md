@@ -1,17 +1,18 @@
-## Welcome to GitHub Pages, 你是枝枝女王吗？嘿嘿
+## 你是宝宝吗？嘿嘿
 
 宝宝，这个域名咱们可以随便改，嘿嘿，只要你喜欢，嘿嘿，宝宝么么哒~~~~
 
-You can use the [editor on GitHub](https://github.com/vvizz19/vvizz19.github.io/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+------
+
+
 
 ### Markdown
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+下边就是Markdown风格： // 使用方法见README.md
 
 ```markdown
-Syntax highlighted code block
+Syntax highlighted code block // 语法高亮代码块
 
 # Header 1
 ## Header 2
@@ -28,12 +29,4 @@ Syntax highlighted code block
 [Link](url) and ![Image](src)
 ```
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/vvizz19/vvizz19.github.io/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+更多Markdown的细节请查看： [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
